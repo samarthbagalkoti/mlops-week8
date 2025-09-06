@@ -1,0 +1,17 @@
+[2025-09-06T07:31:20.263+0000] {local_task_job_runner.py:120} INFO - ::group::Pre task execution logs
+[2025-09-06T07:31:20.301+0000] {taskinstance.py:2076} INFO - Dependencies all met for dep_context=non-requeueable deps ti=<TaskInstance: mlops_w8_pipeline.ingest manual__2025-09-06T07:29:44+00:00 [queued]>
+[2025-09-06T07:31:20.310+0000] {taskinstance.py:2076} INFO - Dependencies all met for dep_context=requeueable deps ti=<TaskInstance: mlops_w8_pipeline.ingest manual__2025-09-06T07:29:44+00:00 [queued]>
+[2025-09-06T07:31:20.310+0000] {taskinstance.py:2306} INFO - Starting attempt 1 of 2
+[2025-09-06T07:31:20.323+0000] {taskinstance.py:2330} INFO - Executing <Task(_PythonDecoratedOperator): ingest> on 2025-09-06 07:29:44+00:00
+[2025-09-06T07:31:20.330+0000] {standard_task_runner.py:64} INFO - Started process 221 to run task
+[2025-09-06T07:31:20.333+0000] {standard_task_runner.py:90} INFO - Running: ['***', 'tasks', 'run', 'mlops_w8_pipeline', 'ingest', 'manual__2025-09-06T07:29:44+00:00', '--job-id', '2', '--raw', '--subdir', 'DAGS_FOLDER/ml_pipeline_dag.py', '--cfg-path', '/tmp/tmpvyp4r6fu']
+[2025-09-06T07:31:20.335+0000] {standard_task_runner.py:91} INFO - Job 2: Subtask ingest
+[2025-09-06T07:31:20.400+0000] {task_command.py:426} INFO - Running <TaskInstance: mlops_w8_pipeline.ingest manual__2025-09-06T07:29:44+00:00 [running]> on host c8f8d8a0876c
+[2025-09-06T07:31:20.680+0000] {taskinstance.py:2648} INFO - Exporting env vars: AIRFLOW_CTX_DAG_OWNER='samarth' AIRFLOW_CTX_DAG_ID='mlops_w8_pipeline' AIRFLOW_CTX_TASK_ID='ingest' AIRFLOW_CTX_EXECUTION_DATE='2025-09-06T07:29:44+00:00' AIRFLOW_CTX_TRY_NUMBER='1' AIRFLOW_CTX_DAG_RUN_ID='manual__2025-09-06T07:29:44+00:00'
+[2025-09-06T07:31:20.681+0000] {taskinstance.py:430} INFO - ::endgroup::
+[2025-09-06T07:31:20.681+0000] {python.py:237} INFO - Done. Returned value was: {'status': 'ok'}
+[2025-09-06T07:31:20.681+0000] {taskinstance.py:441} INFO - ::group::Post task execution logs
+[2025-09-06T07:31:20.711+0000] {taskinstance.py:1206} INFO - Marking task as SUCCESS. dag_id=mlops_w8_pipeline, task_id=ingest, run_id=manual__2025-09-06T07:29:44+00:00, execution_date=20250906T072944, start_date=20250906T073120, end_date=20250906T073120
+[2025-09-06T07:31:20.746+0000] {local_task_job_runner.py:243} INFO - Task exited with return code 0
+[2025-09-06T07:31:20.953+0000] {taskinstance.py:3503} INFO - 1 downstream tasks scheduled from follow-on schedule check
+[2025-09-06T07:31:20.954+0000] {local_task_job_runner.py:222} INFO - ::endgroup::
