@@ -2,4 +2,4 @@ mlflow==3.3.2
 scikit-learn==1.5.1
 pandas==2.2.2
 matplotlib==3.9.0
-
+evidently==0.7.14

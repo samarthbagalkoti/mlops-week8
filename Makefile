@@ -1,7 +1,12 @@
 PROJECT=W8-D1-airflow-basics
-AIRFLOW_SVC ?= airflow-webserver   # or airflow-scheduler
-
+COMPOSE        ?= docker compose
+AIRFLOW_WS     ?= airflow-webserver
+AIRFLOW_SCH    ?= airflow-scheduler
+DAG_ID         ?= dq_and_schedule_dag
+ARTIFACTS_DIR  ?= /home/airflow/artifacts
 .PHONY: init up down clean logs ui trigger test backfill
+.PHONY: airflow.bootstrap dq.trigger dq.backfill.3d dq.catchup.on dq.catchup.off init.reference
+
 
 init:
 	@echo "Setting up directories..."
@@ -17,7 +22,7 @@ logs:
 	docker compose logs -f --tail=200
 
 ui:
-	@echo "Open http://54.147.138.39:8080  (user: admin, pass: admin)"
+	@echo "Open http://54.234.80.17:8080  (user: admin, pass: admin)"
 
 trigger:
 	docker compose exec airflow-webserver airflow dags trigger mlops_w8_pipeline || true
@@ -80,3 +85,35 @@ ci.local:
 	lint format test airflow.init airflow.list airflow.test
 	@echo "✅ Local CI parity run passed."
 
+
+# --- W8:D5 helpers ---#
+airflow.bootstrap:
+	$(COMPOSE) exec -T $(AIRFLOW_WS)  bash -lc 'mkdir -p $(ARTIFACTS_DIR)/{datasets,reports}'
+	$(COMPOSE) exec -T $(AIRFLOW_SCH) bash -lc 'mkdir -p $(ARTIFACTS_DIR)/{datasets,reports}'
+
+dq.trigger:
+	$(COMPOSE) exec -T $(AIRFLOW_WS) airflow dags trigger $(DAG_ID)
+
+# Backfill last 3 days up to yesterday (UTC), compute dates inside container for portability
+dq.backfill.3d:
+	$(COMPOSE) exec -T $(AIRFLOW_WS) bash -lc '\
+		START=$$(python -c "import datetime as dt; print((dt.datetime.utcnow()-dt.timedelta(days=3)).strftime(\"%Y-%m-%d\"))"); \
+		END=$$(python -c "import datetime as dt; print((dt.datetime.utcnow()-dt.timedelta(days=1)).strftime(\"%Y-%m-%d\"))"); \
+		echo \"Backfilling $${START}..$${END} for $(DAG_ID)\"; \
+		airflow dags backfill -s $${START} -e $${END} $(DAG_ID) \
+	'
+
+dq.catchup.on:
+	$(COMPOSE) exec -T $(AIRFLOW_WS) bash -lc '\
+		airflow dags unpause $(DAG_ID); \
+		airflow variables set _dummy 1 >/dev/null 2>&1 || true \
+	'
+
+dq.catchup.off:
+	$(COMPOSE) exec -T $(AIRFLOW_WS) airflow dags pause $(DAG_ID)
+
+# Initialize reference as a copy of current dataset (only if you want to force baseline now)
+init.reference:
+	$(COMPOSE) exec -T $(AIRFLOW_WS) bash -lc '\
+		cp -f $(ARTIFACTS_DIR)/datasets/dataset.csv $(ARTIFACTS_DIR)/datasets/reference.csv && echo "reference set" \
+	'
