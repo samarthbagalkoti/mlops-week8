@@ -1,10 +1,12 @@
-[tool.black]
-line-length = 120
-target-version = ["py311"]
-
 [tool.ruff]
-line-length = 120
+line-length = 120           # ← bump to avoid E501 on long call lines
 target-version = "py311"
+extend-exclude = [
+  ".git", ".venv", "venv", "__pycache__", "airflow_logs", "artifacts", "data"
+]
+
+[tool.ruff.lint]
+# E: pycodestyle, F: pyflakes, I: import sorting (isort)
 select = ["E", "F", "I"]
-ignore = []
+ignore = []                 # keep empty unless you *intentionally* suppress rules
 

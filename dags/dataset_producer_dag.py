@@ -15,26 +15,24 @@ DATASET = Dataset(DATASET_URI)
 
 @dag(
     dag_id="dataset_producer_dag",
-    start_date=datetime(2025, 9, 1),
-    schedule="@hourly",  # simple cadence; you can trigger manually too
+    start_date=datetime(2024, 1, 1),
+    schedule="@daily",
     catchup=False,
-    tags=["w8", "datasets", "producer"],
+    tags=["w8", "dataset"],
 )
-def producer():
-    @task(outlets=[DATASET])  # <-- tells Airflow this task updates DATASET
-    def make_csv():
-        base = Path("/opt/airflow/artifacts/datasets")
-        base.mkdir(parents=True, exist_ok=True)
-        p = base / "dataset.csv"
-        # Write a tiny CSV with random numbers
-        with p.open("w", newline="") as f:
-            w = csv.writer(f)
-            w.writerow(["value"])
-            for _ in range(50):
-                w.writerow([round(random.uniform(0, 1), 4)])
-        return str(p)
+def dataset_producer_dag():
+    @task(outlets=[DATASET])
+    def write_dataset(n: int = 100) -> str:
+        path = Path("/opt/airflow/artifacts/datasets/dataset.csv")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["id", "value"])
+            for i in range(n):
+                writer.writerow([i, random.random()])
+        return str(path)
 
-    make_csv()
+    write_dataset()
 
 
-producer()
+dag = dataset_producer_dag()

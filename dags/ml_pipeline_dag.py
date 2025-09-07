@@ -13,52 +13,32 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 
 
-def _call_task(func_name: str):
-    """
-    Lazy-imports src.train_eval and calls the given function name.
-    This avoids DAG parse-time ImportErrors if src isn't mounted yet.
-    """
+def _call_task(func_name: str) -> None:
+    """Lazy-import src.train_eval and call the given function name."""
     mod = import_module("src.train_eval")
-    if not hasattr(mod, func_name):
-        raise AttributeError(f"'src.train_eval' has no function '{func_name}'")
-    func = getattr(mod, func_name)
-    return func()
+    fn = getattr(mod, func_name)
+    fn()
 
 
-def task_ingest():
-    return _call_task("ingest")
-
-
-def task_train():
-    return _call_task("train")
-
-
-def task_evaluate():
-    return _call_task("evaluate")
-
-
-def task_deploy():
-    return _call_task("deploy")
-
-
-default_args = {
-    "owner": "samarth",
-    "depends_on_past": False,
-    "retries": 0,
-    "retry_delay": timedelta(seconds=15),
-}
+default_args = {"retries": 1, "retry_delay": timedelta(minutes=2)}
 
 with DAG(
-    dag_id="mlops_w8_pipeline",
-    default_args=default_args,
-    schedule=None,  # Airflow 2.9+ uses 'schedule' (not schedule_interval)
+    dag_id="ml_pipeline_dag",
     start_date=datetime(2024, 1, 1),
+    schedule=None,
     catchup=False,
-    tags=["w8", "mlops"],
+    default_args=default_args,
+    tags=["w8", "pipeline"],
 ) as dag:
-    t_ingest = PythonOperator(task_id="ingest", python_callable=task_ingest)
-    t_train = PythonOperator(task_id="train", python_callable=task_train)
-    t_eval = PythonOperator(task_id="evaluate", python_callable=task_evaluate)
-    t_deploy = PythonOperator(task_id="deploy", python_callable=task_deploy)
+    train = PythonOperator(
+        task_id="train",
+        python_callable=_call_task,
+        op_kwargs={"func_name": "train_model"},
+    )
+    evaluate = PythonOperator(
+        task_id="evaluate",
+        python_callable=_call_task,
+        op_kwargs={"func_name": "evaluate"},
+    )
 
-    t_ingest >> t_train >> t_eval >> t_deploy
+    train >> evaluate
