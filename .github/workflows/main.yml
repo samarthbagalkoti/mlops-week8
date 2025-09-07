@@ -21,15 +21,17 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          
-      - name: Set PYTHONPATH
+          python-version: "3.12"
+      - name: Install test deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest
+      - name: Make src importable
         run: echo "PYTHONPATH=$PWD" >> $GITHUB_ENV
-      - run: pytest -q
+      - name: Run tests
+        run: pytest -q
       
       - name: Install linters & pytest
         run: |
