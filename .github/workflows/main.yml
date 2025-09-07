@@ -1,0 +1,76 @@
+name: CI - Airflow DAGs & ML
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    env:
+      PYTHON_VERSION: "3.11"
+      AIRFLOW_VERSION: "2.9.2"
+      AIRFLOW_HOME: ${{ github.workspace }}/.airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AIRFLOW__CORE__EXECUTOR: "SequentialExecutor"
+      # keep tests deterministic
+      MPLBACKEND: "Agg"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install linters & pytest
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff==0.5.0 black==24.3.0 pytest==8.2.0
+
+      - name: Install Airflow (pinned with constraints)
+        run: |
+          CONSTRAINT_URL="https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${{ env.PYTHON_VERSION }}.txt"
+          pip install "apache-airflow==${AIRFLOW_VERSION}" --constraint "${CONSTRAINT_URL}"
+
+      - name: Install project deps
+        run: |
+          pip install -r requirements.txt
+
+      - name: Lint (ruff) & Format check (black)
+        run: |
+          ruff check dags src tests
+          black --check dags src tests
+
+      - name: Unit tests (pytest)
+        run: |
+          pytest -q
+
+      - name: Init Airflow DB (SQLite)
+        run: |
+          mkdir -p "${AIRFLOW_HOME}"
+          airflow db init
+          airflow users create \
+            --username admin --password admin --firstname Admin --lastname User \
+            --role Admin --email admin@example.com || true
+
+      - name: DAG import check (DagBag)
+        run: |
+          python - <<'PY'
+          from airflow.models import DagBag
+          db = DagBag(include_examples=False)
+          assert db.import_errors == {}, f"Import errors: {db.import_errors}"
+          print(f"Loaded {len(db.dags)} DAG(s) OK")
+          PY
+
+      - name: Airflow "dags test" - dataset producer (single task)
+        run: |
+          airflow dags test dataset_producer_dag make_csv 2025-09-01
+
+      - name: Airflow "dags test" - consumer evaluate (single task)
+        run: |
+          airflow dags test mlops_w8_param_pipeline evaluate 2025-09-01
