@@ -52,3 +52,31 @@ dataset.produce:
 
 dataset.consume:
 	docker compose exec airflow-webserver airflow dags trigger dataset_consumer_dag
+
+
+.PHONY: lint format test airflow.init airflow.list airflow.test ci.local
+
+lint:
+	ruff check dags src tests
+
+format:
+	black dags src tests
+
+test:
+	pytest -q
+
+airflow.init:
+	AIRFLOW_HOME=.airflow AIRFLOW__CORE__LOAD_EXAMPLES=False AIRFLOW__CORE__EXECUTOR=SequentialExecutor \\
+	airflow db init
+
+airflow.list:
+	AIRFLOW_HOME=.airflow airflow dags list
+
+airflow.test:
+	AIRFLOW_HOME=.airflow airflow dags test dataset_producer_dag make_csv 2025-09-01; \\
+	AIRFLOW_HOME=.airflow airflow dags test mlops_w8_param_pipeline evaluate 2025-09-01
+
+ci.local: 
+	lint format test airflow.init airflow.list airflow.test
+	@echo "✅ Local CI parity run passed."
+
