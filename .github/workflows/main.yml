@@ -15,52 +15,50 @@ jobs:
       AIRFLOW_HOME: ${{ github.workspace }}/.airflow
       AIRFLOW__CORE__LOAD_EXAMPLES: "False"
       AIRFLOW__CORE__EXECUTOR: "SequentialExecutor"
-      # keep tests deterministic
+      AIRFLOW__CORE__DAGS_FOLDER: ${{ github.workspace }}/dags
+      # make local imports (src/) resolvable and plots headless
+      PYTHONPATH: ${{ github.workspace }}
       MPLBACKEND: "Agg"
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-      - name: Install test deps
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Upgrade pip and install base test/lint deps
         run: |
           python -m pip install --upgrade pip
-          pip install pytest
-      - name: Make src importable
-        run: echo "PYTHONPATH=$PWD" >> $GITHUB_ENV
-      - name: Run tests
-        run: pytest -q
-      
-      - name: Install linters & pytest
+          pip install pytest ruff==0.6.8
+
+      - name: Install project deps (optional)
         run: |
-          python -m pip install --upgrade pip
-          pip install ruff==0.5.0 black==24.3.0 pytest==8.2.0
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
       - name: Install Airflow (pinned with constraints)
         run: |
-          CONSTRAINT_URL="https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${{ env.PYTHON_VERSION }}.txt"
+          CONSTRAINT_URL="https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_VERSION}.txt"
           pip install "apache-airflow==${AIRFLOW_VERSION}" --constraint "${CONSTRAINT_URL}"
 
-      - name: Install project deps
+      # ---- Lint & Format (writes first, then verifies) ----
+      - name: Ruff - format & lint (write)
         run: |
-          pip install -r requirements.txt
+          ruff format dags src tests
+          ruff check dags src tests --fix
 
-
-
-      - run: python -m pip install --upgrade pip ruff==0.6.8
-      - name: Format and lint
+      - name: Ruff - verify clean
         run: |
-          ruff format dags src tests          # writes formatting
-          ruff check dags src tests --fix     # writes lint fixes
-          ruff format dags src tests --check  # now passes
-          ruff check dags src tests           # now passes
+          ruff format dags src tests --check
+          ruff check dags src tests
 
+      # ---- Unit tests (host-level) ----
       - name: Unit tests (pytest)
-        run: |
-          pytest -q
+        run: pytest -q
 
+      # ---- Airflow checks ----
       - name: Init Airflow DB (SQLite)
         run: |
           mkdir -p "${AIRFLOW_HOME}"
@@ -78,10 +76,20 @@ jobs:
           print(f"Loaded {len(db.dags)} DAG(s) OK")
           PY
 
-      - name: Airflow "dags test" - dataset producer (single task)
-        run: |
-          airflow dags test dataset_producer_dag make_csv 2025-09-01
+      - name: List DAGs (sanity)
+        run: airflow dags list -S "${{ github.workspace }}/dags"
 
-      - name: Airflow "dags test" - consumer evaluate (single task)
-        run: |
-          airflow dags test mlops_w8_param_pipeline evaluate 2025-09-01
+      # Run the entire producer DAG once for a specific execution date
+      - name: Airflow "dags test" - dataset_producer_dag (full DAG)
+        run: airflow dags test -S "${{ github.workspace }}/dags" dataset_producer_dag 2025-09-01
+
+      # Run a single task from producer DAG (use your actual task_id; default below is write_dataset)
+      - name: Airflow "tasks test" - dataset_producer_dag.write_dataset
+        run: airflow tasks test -S "${{ github.workspace }}/dags" dataset_producer_dag write_dataset 2025-09-01
+
+      # Run the param DAG end-to-end with a small conf
+      - name: Airflow "dags test" - mlops_w8_param_pipeline with conf
+        run: >
+          airflow dags test -S "${{ github.workspace }}/dags"
+          mlops_w8_param_pipeline 2025-09-01
+          -c '{"C": 1.0, "max_iter": 10}'
