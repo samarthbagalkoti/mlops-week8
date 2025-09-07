@@ -47,10 +47,15 @@ jobs:
         run: |
           pip install -r requirements.txt
 
-      - name: Lint (ruff) & Format check (black)
+
+
+      - run: python -m pip install --upgrade pip ruff==0.6.8
+      - name: Format and lint
         run: |
-          ruff check dags src tests
-          black --check dags src tests
+          ruff format dags src tests          # writes formatting
+          ruff check dags src tests --fix     # writes lint fixes
+          ruff format dags src tests --check  # now passes
+          ruff check dags src tests           # now passes
 
       - name: Unit tests (pytest)
         run: |
